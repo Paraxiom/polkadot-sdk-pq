@@ -1,0 +1,323 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Keystore traits
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+#[cfg(feature = "std")]
+pub mod testing;
+
+// Bandersnatch and BLS removed for quantum-safety
+use sp_core::{
+	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
+	sphincs,
+};
+
+use alloc::{string::String, sync::Arc, vec::Vec};
+
+/// Keystore error
+#[derive(Debug)]
+pub enum Error {
+	/// Public key type is not supported
+	KeyNotSupported(KeyTypeId),
+	/// Validation error
+	ValidationError(String),
+	/// Keystore unavailable
+	Unavailable,
+	/// Programming errors
+	Other(String),
+}
+
+impl core::fmt::Display for Error {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Error::KeyNotSupported(key_type) => write!(fmt, "Key not supported: {key_type:?}"),
+			Error::ValidationError(error) => write!(fmt, "Validation error: {error}"),
+			Error::Unavailable => fmt.write_str("Keystore unavailable"),
+			Error::Other(error) => write!(fmt, "An unknown keystore error occurred: {error}"),
+		}
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
+
+/// Something that generates, stores and provides access to secret keys.
+pub trait Keystore: Send + Sync {
+	// Quantum-vulnerable sr25519 methods removed for quantum-safety
+
+	// Quantum-vulnerable ed25519 methods removed for quantum-safety
+
+	// Quantum-vulnerable ecdsa methods removed for quantum-safety
+
+	// Bandersnatch methods removed for quantum-safety
+
+	// BLS methods removed for quantum-safety
+
+
+	/// Returns all **sphincs** public keys for the given key type.
+	fn sphincs_public_keys(&self, key_type: KeyTypeId) -> Vec<sphincs::Public>;
+
+	/// Generate a new **sphincs** key pair for the given key type and an optional seed.
+	///
+	/// If the given seed is `Some(_)`, the key pair will be ephemeral and stored in memory.
+	fn sphincs_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<sphincs::Public, Error>;
+
+	/// Generate a **sphincs** signature for a given message.
+	///
+	/// Receives [`KeyTypeId`] and a [`sphincs::Public`] key to be able to map
+	/// them to a private key that exists in the keystore.
+	///
+	/// Returns a [`sphincs::Signature`] or `None` in case the given `key_type`
+	/// and `public` combination doesn't exist in the keystore.
+	/// An `Err` will be returned if generating the signature itself failed.
+	fn sphincs_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &sphincs::Public,
+		msg: &[u8],
+	) -> Result<Option<sphincs::Signature>, Error>;
+
+	/// Insert a new secret key.
+	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()>;
+
+	/// List all supported keys of a given type.
+	///
+	/// Returns a set of public keys the signer supports in raw format.
+	fn keys(&self, key_type: KeyTypeId) -> Result<Vec<Vec<u8>>, Error>;
+
+	/// Checks if the private keys for the given public key and key type combinations exist.
+	///
+	/// Returns `true` iff all private keys could be found.
+	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool;
+
+	/// Convenience method to sign a message using the given key type and a raw public key
+	/// for secret lookup.
+	///
+	/// The message is signed using the cryptographic primitive specified by `crypto_id`.
+	///
+	/// Schemes supported by the default trait implementation:
+	/// - bandersnatch
+	/// - bls381
+	/// - sphincs
+	///
+	/// To support more schemes you can overwrite this method.
+	///
+	/// Returns the SCALE encoded signature if key is found and supported, `None` if the key doesn't
+	/// exist or an error when something failed.
+	fn sign_with(
+		&self,
+		id: KeyTypeId,
+		crypto_id: CryptoTypeId,
+		public: &[u8],
+		msg: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		use codec::Encode;
+
+		let signature = match crypto_id {
+			#[cfg(feature = "bandersnatch-experimental")]
+			bandersnatch::CRYPTO_ID => {
+				let public = bandersnatch::Public::from_slice(public)
+					.map_err(|_| Error::ValidationError("Invalid public key format".into()))?;
+				self.bandersnatch_sign(id, &public, msg)?.map(|s| s.encode())
+			},
+			#[cfg(feature = "bls-experimental")]
+			bls381::CRYPTO_ID => {
+				let public = bls381::Public::from_slice(public)
+					.map_err(|_| Error::ValidationError("Invalid public key format".into()))?;
+				self.bls381_sign(id, &public, msg)?.map(|s| s.encode())
+			},
+			sphincs::CRYPTO_ID => {
+				let public = sphincs::Public::from_slice(public)
+					.map_err(|_| Error::ValidationError("Invalid public key format".into()))?;
+				self.sphincs_sign(id, &public, msg)?.map(|s| s.encode())
+			},
+			_ => return Err(Error::KeyNotSupported(id)),
+		};
+		Ok(signature)
+	}
+}
+
+impl<T: Keystore + ?Sized> Keystore for Arc<T> {
+	// Quantum-vulnerable sr25519, ed25519, and ecdsa methods removed for quantum-safety
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_public_keys(&self, key_type: KeyTypeId) -> Vec<bandersnatch::Public> {
+		(**self).bandersnatch_public_keys(key_type)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<bandersnatch::Public, Error> {
+		(**self).bandersnatch_generate_new(key_type, seed)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		msg: &[u8],
+	) -> Result<Option<bandersnatch::Signature>, Error> {
+		(**self).bandersnatch_sign(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_vrf_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		input: &bandersnatch::vrf::VrfSignData,
+	) -> Result<Option<bandersnatch::vrf::VrfSignature>, Error> {
+		(**self).bandersnatch_vrf_sign(key_type, public, input)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_vrf_pre_output(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		input: &bandersnatch::vrf::VrfInput,
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
+		(**self).bandersnatch_vrf_pre_output(key_type, public, input)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_ring_vrf_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		input: &bandersnatch::vrf::VrfSignData,
+		prover: &bandersnatch::ring_vrf::RingProver,
+	) -> Result<Option<bandersnatch::ring_vrf::RingVrfSignature>, Error> {
+		(**self).bandersnatch_ring_vrf_sign(key_type, public, input, prover)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_public_keys(&self, id: KeyTypeId) -> Vec<bls381::Public> {
+		(**self).bls381_public_keys(id)
+	}
+
+	// Quantum-vulnerable ecdsa_bls381 methods removed for quantum-safety
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<bls381::Public, Error> {
+		(**self).bls381_generate_new(key_type, seed)
+	}
+
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		msg: &[u8],
+	) -> Result<Option<bls381::Signature>, Error> {
+		(**self).bls381_sign(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_proof_of_possession(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+	) -> Result<Option<bls381::Signature>, Error> {
+		(**self).bls381_generate_proof_of_possession(key_type, public)
+	}
+
+
+	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {
+		(**self).insert(key_type, suri, public)
+	}
+
+	fn keys(&self, key_type: KeyTypeId) -> Result<Vec<Vec<u8>>, Error> {
+		(**self).keys(key_type)
+	}
+
+	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
+		(**self).has_keys(public_keys)
+	}
+
+	fn sphincs_public_keys(&self, key_type: KeyTypeId) -> Vec<sphincs::Public> {
+		(**self).sphincs_public_keys(key_type)
+	}
+
+	fn sphincs_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<sphincs::Public, Error> {
+		(**self).sphincs_generate_new(key_type, seed)
+	}
+
+	fn sphincs_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &sphincs::Public,
+		msg: &[u8],
+	) -> Result<Option<sphincs::Signature>, Error> {
+		(**self).sphincs_sign(key_type, public, msg)
+	}
+}
+
+/// A shared pointer to a keystore implementation.
+pub type KeystorePtr = Arc<dyn Keystore>;
+
+sp_externalities::decl_extension! {
+	/// The keystore extension to register/retrieve from the externalities.
+	pub struct KeystoreExt(KeystorePtr);
+}
+
+impl KeystoreExt {
+	/// Create a new instance of `KeystoreExt`
+	///
+	/// This is more performant as we don't need to wrap keystore in another [`Arc`].
+	pub fn from(keystore: KeystorePtr) -> Self {
+		Self(keystore)
+	}
+
+	/// Create a new instance of `KeystoreExt` using the given `keystore`.
+	pub fn new<T: Keystore + 'static>(keystore: T) -> Self {
+		Self(Arc::new(keystore))
+	}
+}
+
+sp_core::generate_feature_enabled_macro!(
+	bandersnatch_experimental_enabled,
+	feature = "bandersnatch-experimental",
+	$
+);
+
+sp_core::generate_feature_enabled_macro!(
+	bls_experimental_enabled,
+	feature = "bls-experimental",
+	$
+);

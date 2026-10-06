@@ -1,0 +1,86 @@
+[package]
+name = "pallet-quantum-crypto"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { workspace = true, features = ["derive", "max-encoded-len"] }
+scale-info = { workspace = true, features = ["derive"] }
+serde = { features = ["derive"], workspace = true, optional = true }
+
+# Substrate
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+
+# STARK proof system
+winterfell = { version = "0.9", default-features = false }
+winter-crypto = { version = "0.9", default-features = false }
+winter-math = { version = "0.9", default-features = false }
+winter-utils = { version = "0.9", default-features = false }
+
+# Crypto
+sha3 = { version = "0.10", default-features = false }
+# Post-quantum cryptography
+pqcrypto-sphincsplus = { version = "0.7", optional = true, default-features = false }
+pqcrypto-falcon = { version = "0.3", optional = true, default-features = false }
+pqcrypto-traits = { version = "0.3", optional = true, default-features = false }
+# SPQR (Sparse Post-Quantum Ratchet) scaffolding - Reed-Solomon entropy submission.
+# pqc_kyber dropped: KyberSlash timing side-channel (no patched release) and it was an
+# unused optional dep (no source references). The platform's ML-KEM is provided by the
+# maintained `ml-kem` crate (messaging) and `pqcrypto-kyber` (transport).
+reed-solomon-erasure = { version = "6.0", optional = true, default-features = false }
+# x25519-dalek REMOVED - this is a full PQC/QKD platform, no classical ECDH
+# rand_chacha removed - we use quantum RNG from the entropy hub
+
+# Logging
+log = { version = "0.4", default-features = false }
+
+# For offchain features
+serde_json = { version = "1.0", optional = true, default-features = false }
+
+[dev-dependencies]
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "scale-info/std",
+    "serde",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-core/std",
+    "sp-io/std",
+    "winterfell/std",
+    "winter-crypto/std",
+    "winter-math/std",
+    "winter-utils/std",
+    "sha3/std",
+    "log/std",
+    "serde_json",
+    "pqcrypto-sphincsplus?/std",
+    "pqcrypto-falcon?/std",
+    "pqcrypto-traits?/std",
+    "reed-solomon-erasure?/std",
+]
+full_crypto = ["pqcrypto-sphincsplus", "pqcrypto-falcon", "pqcrypto-traits"]
+spqr = ["pqcrypto-falcon", "reed-solomon-erasure"]
+runtime-benchmarks = [
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+]
+try-runtime = [
+    "frame-support/try-runtime",
+    "frame-system/try-runtime",
+]

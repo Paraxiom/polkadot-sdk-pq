@@ -1,0 +1,440 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Types that should only be used for testing!
+
+use crate::{Error, Keystore, KeystorePtr};
+
+#[cfg(feature = "bandersnatch-experimental")]
+use sp_core::bandersnatch;
+#[cfg(feature = "bls-experimental")]
+use sp_core::{
+	bls381, proof_of_possession::ProofOfPossessionGenerator,
+};
+use sp_core::{
+	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
+	sphincs,
+};
+
+use parking_lot::RwLock;
+use std::{collections::HashMap, sync::Arc};
+
+/// A keystore implementation usable in tests.
+#[derive(Default, Clone)]
+pub struct MemoryKeystore {
+	/// `KeyTypeId` maps to public keys and public keys map to private keys.
+	keys: Arc<RwLock<HashMap<KeyTypeId, HashMap<Vec<u8>, String>>>>,
+}
+
+impl MemoryKeystore {
+	/// Creates a new instance of `Self`.
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	fn pair<T: Pair>(&self, key_type: KeyTypeId, public: &T::Public) -> Option<T> {
+		self.keys.read().get(&key_type).and_then(|inner| {
+			inner
+				.get(public.as_slice())
+				.map(|s| T::from_string(s, None).expect("seed slice is valid"))
+		})
+	}
+
+	fn public_keys<T: Pair>(&self, key_type: KeyTypeId) -> Vec<T::Public> {
+		self.keys
+			.read()
+			.get(&key_type)
+			.map(|keys| {
+				keys.iter()
+					.filter_map(|(raw_pubkey, s)| {
+						let pair = T::from_string(s, None).expect("seed slice is valid");
+						let pubkey = pair.public();
+						(pubkey.as_slice() == raw_pubkey).then_some(pubkey)
+					})
+					.collect()
+			})
+			.unwrap_or_default()
+	}
+
+	fn generate_new<T: Pair>(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<T::Public, Error> {
+		match seed {
+			Some(seed) => {
+				let pair = T::from_string(seed, None)
+					.map_err(|_| Error::ValidationError("Generates a pair.".to_owned()))?;
+				self.keys
+					.write()
+					.entry(key_type)
+					.or_default()
+					.insert(pair.public().to_raw_vec(), seed.into());
+				Ok(pair.public())
+			},
+			None => {
+				let (pair, phrase, _) = T::generate_with_phrase(None);
+				self.keys
+					.write()
+					.entry(key_type)
+					.or_default()
+					.insert(pair.public().to_raw_vec(), phrase);
+				Ok(pair.public())
+			},
+		}
+	}
+
+	fn sign<T: Pair>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+		msg: &[u8],
+	) -> Result<Option<T::Signature>, Error> {
+		let sig = self.pair::<T>(key_type, public).map(|pair| pair.sign(msg));
+		Ok(sig)
+	}
+
+	fn vrf_sign<T: Pair + VrfSecret>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+		data: &T::VrfSignData,
+	) -> Result<Option<T::VrfSignature>, Error> {
+		let sig = self.pair::<T>(key_type, public).map(|pair| pair.vrf_sign(data));
+		Ok(sig)
+	}
+
+	fn vrf_pre_output<T: Pair + VrfSecret>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+		input: &T::VrfInput,
+	) -> Result<Option<T::VrfPreOutput>, Error> {
+		let pre_output = self.pair::<T>(key_type, public).map(|pair| pair.vrf_pre_output(input));
+		Ok(pre_output)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn generate_proof_of_possession<T: Pair + ProofOfPossessionGenerator>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+	) -> Result<Option<T::Signature>, Error> {
+		let proof_of_possession = self
+			.pair::<T>(key_type, public)
+			.map(|mut pair| pair.generate_proof_of_possession());
+		Ok(proof_of_possession)
+	}
+}
+
+impl Keystore for MemoryKeystore {
+	// Quantum-vulnerable sr25519, ed25519, and ecdsa methods removed for quantum-safety
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_public_keys(&self, key_type: KeyTypeId) -> Vec<bandersnatch::Public> {
+		self.public_keys::<bandersnatch::Pair>(key_type)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<bandersnatch::Public, Error> {
+		self.generate_new::<bandersnatch::Pair>(key_type, seed)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		msg: &[u8],
+	) -> Result<Option<bandersnatch::Signature>, Error> {
+		self.sign::<bandersnatch::Pair>(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_vrf_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		data: &bandersnatch::vrf::VrfSignData,
+	) -> Result<Option<bandersnatch::vrf::VrfSignature>, Error> {
+		self.vrf_sign::<bandersnatch::Pair>(key_type, public, data)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_ring_vrf_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		data: &bandersnatch::vrf::VrfSignData,
+		prover: &bandersnatch::ring_vrf::RingProver,
+	) -> Result<Option<bandersnatch::ring_vrf::RingVrfSignature>, Error> {
+		let sig = self
+			.pair::<bandersnatch::Pair>(key_type, public)
+			.map(|pair| pair.ring_vrf_sign(data, prover));
+		Ok(sig)
+	}
+
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_vrf_pre_output(
+		&self,
+		key_type: KeyTypeId,
+		public: &bandersnatch::Public,
+		input: &bandersnatch::vrf::VrfInput,
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
+		self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<bls381::Public> {
+		self.public_keys::<bls381::Pair>(key_type)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<bls381::Public, Error> {
+		self.generate_new::<bls381::Pair>(key_type, seed)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		msg: &[u8],
+	) -> Result<Option<bls381::Signature>, Error> {
+		self.sign::<bls381::Pair>(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_proof_of_possession(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+	) -> Result<Option<bls381::Signature>, Error> {
+		self.generate_proof_of_possession::<bls381::Pair>(key_type, public)
+	}
+
+	// Quantum-vulnerable ecdsa_bls381 methods removed for quantum-safety
+
+
+
+	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {
+		self.keys
+			.write()
+			.entry(key_type)
+			.or_default()
+			.insert(public.to_owned(), suri.to_string());
+		Ok(())
+	}
+
+	fn keys(&self, key_type: KeyTypeId) -> Result<Vec<Vec<u8>>, Error> {
+		let keys = self
+			.keys
+			.read()
+			.get(&key_type)
+			.map(|map| map.keys().cloned().collect())
+			.unwrap_or_default();
+		Ok(keys)
+	}
+
+	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
+		public_keys
+			.iter()
+			.all(|(k, t)| self.keys.read().get(t).and_then(|s| s.get(k)).is_some())
+	}
+
+	fn sphincs_public_keys(&self, key_type: KeyTypeId) -> Vec<sphincs::Public> {
+		self.public_keys::<sphincs::Pair>(key_type)
+	}
+
+	fn sphincs_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<sphincs::Public, Error> {
+		self.generate_new::<sphincs::Pair>(key_type, seed)
+	}
+
+	fn sphincs_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &sphincs::Public,
+		msg: &[u8],
+	) -> Result<Option<sphincs::Signature>, Error> {
+		self.sign::<sphincs::Pair>(key_type, public, msg)
+	}
+}
+
+impl Into<KeystorePtr> for MemoryKeystore {
+	fn into(self) -> KeystorePtr {
+		Arc::new(self)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::testing::SPHINCS;
+	#[cfg(feature = "bandersnatch-experimental")]
+	use sp_core::testing::BANDERSNATCH;
+
+	// Quantum-vulnerable ed25519 test removed for quantum-safety
+	// #[test]
+	// fn store_key_and_extract() {
+
+	// Quantum-vulnerable sr25519 test removed for quantum-safety
+	// #[test]
+	// fn store_unknown_and_extract_it() {
+
+	// Quantum-vulnerable sr25519 vrf test removed for quantum-safety
+	// #[test]
+	// fn sr25519_vrf_sign() {
+
+	// Quantum-vulnerable sr25519 vrf pre-output test removed for quantum-safety
+	// #[test]
+	// fn sr25519_vrf_pre_output() {
+
+	// Quantum-vulnerable ecdsa test removed for quantum-safety
+	// #[test]
+	// fn ecdsa_sign_prehashed_works() {
+
+	// Quantum-vulnerable ecdsa_bls381 test removed for quantum-safety
+	// #[test]
+	// #[cfg(feature = "bls-experimental")]
+	// fn ecdsa_bls381_sign_with_keccak_works() {
+
+	// Quantum-vulnerable ecdsa_bls381 test removed for quantum-safety
+	// #[test]
+	// #[cfg(feature = "bls-experimental")]
+	// fn ecdsa_bls381_generate_with_none_works() {
+
+	// Quantum-vulnerable ecdsa_bls381 test removed for quantum-safety
+	// #[test]
+	// #[cfg(feature = "bls-experimental")]
+	// fn ecdsa_bls381_generate_with_seed_works() {
+
+	#[test]
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_vrf_sign() {
+		use sp_core::testing::BANDERSNATCH;
+
+		let store = MemoryKeystore::new();
+
+		let secret_uri = "//Alice";
+		let key_pair =
+			bandersnatch::Pair::from_string(secret_uri, None).expect("Generates key pair");
+		let sign_data = bandersnatch::vrf::VrfSignData::new(b"vrf_input", b"aux_data");
+
+		let result = store.bandersnatch_vrf_sign(BANDERSNATCH, &key_pair.public(), &sign_data);
+		assert!(result.unwrap().is_none());
+
+		store
+			.insert(BANDERSNATCH, secret_uri, key_pair.public().as_ref())
+			.expect("Inserts unknown key");
+
+		let result = store.bandersnatch_vrf_sign(BANDERSNATCH, &key_pair.public(), &sign_data);
+
+		assert!(result.unwrap().is_some());
+	}
+
+	#[test]
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_ring_vrf_sign() {
+		use sp_core::testing::BANDERSNATCH;
+
+		let store = MemoryKeystore::new();
+
+		let ring_ctx = bandersnatch::ring_vrf::RingContext::<1024>::new_testing();
+
+		let mut pks: Vec<_> = (0..16)
+			.map(|i| bandersnatch::Pair::from_seed(&[i as u8; 32]).public())
+			.collect();
+
+		let prover_idx = 3;
+		let prover = ring_ctx.prover(&pks, prover_idx);
+
+		let secret_uri = "//Alice";
+		let pair = bandersnatch::Pair::from_string(secret_uri, None).expect("Generates key pair");
+		pks[prover_idx] = pair.public();
+
+		let sign_data = bandersnatch::vrf::VrfSignData::new(b"vrf_input", b"aux_data");
+
+		let result =
+			store.bandersnatch_ring_vrf_sign(BANDERSNATCH, &pair.public(), &sign_data, &prover);
+		assert!(result.unwrap().is_none());
+
+		store
+			.insert(BANDERSNATCH, secret_uri, pair.public().as_ref())
+			.expect("Inserts unknown key");
+
+		let result =
+			store.bandersnatch_ring_vrf_sign(BANDERSNATCH, &pair.public(), &sign_data, &prover);
+
+		assert!(result.unwrap().is_some());
+	}
+
+	#[test]
+	fn sphincs_sign_works() {
+		use sp_core::testing::SPHINCS;
+
+		let store = MemoryKeystore::new();
+
+		let secret_uri = "//Alice";
+		let pair = sphincs::Pair::from_string(secret_uri, None).expect("Generates key pair");
+
+		let msg = b"Test message for SPHINCS signature";
+
+		// no key in key store
+		let res = store.sphincs_sign(SPHINCS, &pair.public(), msg).unwrap();
+		assert!(res.is_none());
+
+		// insert key, sign again
+		store.insert(SPHINCS, secret_uri, pair.public().as_ref()).unwrap();
+
+		let res = store.sphincs_sign(SPHINCS, &pair.public(), msg).unwrap();
+		assert!(res.is_some());
+
+		// verify signature
+		let signature = res.unwrap();
+		assert!(sphincs::Pair::verify(&signature, msg, &pair.public()));
+	}
+
+	#[test]
+	fn sphincs_generate_and_extract() {
+		use sp_core::testing::SPHINCS;
+
+		let store = MemoryKeystore::new();
+
+		// Generate with no seed
+		let public = store.sphincs_generate_new(SPHINCS, None).expect("Generates key");
+		let public_keys = store.sphincs_public_keys(SPHINCS);
+		assert!(public_keys.contains(&public));
+
+		// Generate with seed
+		let public2 = store.sphincs_generate_new(SPHINCS, Some("//Bob")).expect("Generates key");
+		let public_keys2 = store.sphincs_public_keys(SPHINCS);
+		assert!(public_keys2.contains(&public2));
+		assert_eq!(public_keys2.len(), 2);
+	}
+}
