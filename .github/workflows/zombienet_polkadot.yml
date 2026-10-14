@@ -50,7 +50,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -78,7 +78,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -106,7 +106,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -135,7 +135,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -162,7 +162,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -190,7 +190,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -218,7 +218,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -247,7 +247,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -274,7 +274,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -304,7 +304,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # We need to use an older version of polkadot/polkadot-parachain, particulary a version that doesn't includes
       # https://github.com/paritytech/polkadot-sdk/pull/1644, and since this change is also used by the collators we need to
@@ -359,7 +359,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: cp_script
         run: |
@@ -390,7 +390,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: cp_script
         run: |
@@ -423,7 +423,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -450,7 +450,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -476,7 +476,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -503,7 +503,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -530,7 +530,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -559,7 +559,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -586,7 +586,7 @@ jobs:
   #     ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
   #   steps:
   #     - name: Checkout
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v7
 
   #     - name: custom_setup
   #       run: |
@@ -625,7 +625,7 @@ jobs:
       ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -659,7 +659,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -688,7 +688,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -717,7 +717,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -746,7 +746,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -775,7 +775,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -804,7 +804,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -834,7 +834,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -865,7 +865,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -896,7 +896,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -928,7 +928,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -957,7 +957,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
@@ -989,7 +989,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # We need to use an older version of polkadot
       - name: download_old_release_bins
@@ -1043,7 +1043,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
